@@ -33,6 +33,7 @@ doc.search('page').each do |p|
 
       begin
         raise BadDataError if record['council_reference'].nil?
+        raise BadDataError if record['council_reference'] == "DAPS Name"
 
         if (ScraperWiki.select("* from data where `council_reference`='#{record['council_reference']}'").empty? rescue true)
           ScraperWiki.save_sqlite(['council_reference'], record)
