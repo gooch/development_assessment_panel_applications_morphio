@@ -5,11 +5,13 @@ require "open-uri"
 require 'nokogiri'
 require File.dirname(__FILE__) + "/ruby_pdf_helper/scraper"
 
+class BadDataError < Exception
+end
+
 info_url = "http://daps.planning.wa.gov.au/8.asp"
 url = "http://www.planning.wa.gov.au/daps/data/Current%20DAP%20Applications/Current%20DAP%20Applications.pdf"
 
 doc = Nokogiri::XML(PdfHelper.pdftoxml(open(url) {|f| f.read}))
-
 doc.search('page').each do |p|
   PdfHelper.extract_table_from_pdf_text(p.search('text')).each do |row|
     unless row[0] == 'No'
@@ -29,10 +31,16 @@ doc.search('page').each do |p|
         $stderr.puts row[5]
       end
 
-      if (ScraperWiki.select("* from data where `council_reference`='#{record['council_reference']}'").empty? rescue true)
-        ScraperWiki.save_sqlite(['council_reference'], record)
-      else
-        puts "Skipping already saved record " + record['council_reference']
+      begin
+        raise BadDataError if record['council_reference'].nil?
+
+        if (ScraperWiki.select("* from data where `council_reference`='#{record['council_reference']}'").empty? rescue true)
+          ScraperWiki.save_sqlite(['council_reference'], record)
+        else
+          puts "Skipping already saved record " + record['council_reference']
+        end
+      rescue BadDataError
+        $stderr.puts "Bad data: #{record.inspect}"
       end
     end
   end
