@@ -1,25 +1,37 @@
-# This is a template for a Ruby scraper on morph.io (https://morph.io)
-# including some code snippets below that you should find helpful
+require 'scraperwiki'
+require "open-uri"
+require 'nokogiri'
+require File.dirname(__FILE__) + "/ruby_pdf_helper/scraper"
 
-# require 'scraperwiki'
-# require 'mechanize'
-#
-# agent = Mechanize.new
-#
-# # Read in a page
-# page = agent.get("http://foo.com")
-#
-# # Find somehing on the page using css selectors
-# p page.at('div.content')
-#
-# # Write out to the sqlite database using scraperwiki library
-# ScraperWiki.save_sqlite(["name"], {"name" => "susan", "occupation" => "software developer"})
-#
-# # An arbitrary query against the database
-# ScraperWiki.select("* from data where 'name'='peter'")
+info_url = "http://daps.planning.wa.gov.au/8.asp"
+url = "http://www.planning.wa.gov.au/daps/data/Current%20DAP%20Applications/Current%20DAP%20Applications.pdf"
 
-# You don't have to do things with the Mechanize or ScraperWiki libraries.
-# You can use whatever gems you want: https://morph.io/documentation/ruby
-# All that matters is that your final data is written to an SQLite database
-# called "data.sqlite" in the current working directory which has at least a table
-# called "data".
+doc = Nokogiri::XML(PdfHelper.pdftoxml(open(url) {|f| f.read}))
+
+doc.search('page').each do |p|
+  PdfHelper.extract_table_from_pdf_text(p.search('text')).each do |row|
+    unless row[0] == 'No'
+
+      description = row[4] ? row[4].gsub("\n", "") : nil
+      record = {
+        "council_reference" => row[0],
+        "description" => description,
+        "address" => row[4].split("\n").last + ", WA",
+        "date_scraped" => Date.today.to_s,
+        "info_url" => info_url,
+        "comment_url" => info_url,
+      }
+      begin
+        record["date_received"] = Date.strptime(row[5].gsub("//","/").strip, "%d/%m/%Y").to_s if row[5]
+      rescue
+        puts row[5]
+      end
+
+      if (ScraperWiki.select("* from data where `council_reference`='#{record['council_reference']}'").empty? rescue true)
+        ScraperWiki.save_sqlite(['council_reference'], record)
+      else
+        puts "Skipping already saved record " + record['council_reference']
+      end
+    end
+  end
+end
