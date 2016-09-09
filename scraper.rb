@@ -1,3 +1,5 @@
+#!/usr/bin/env ruby
+
 require 'scraperwiki'
 require "open-uri"
 require 'nokogiri'
