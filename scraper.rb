@@ -26,7 +26,7 @@ doc.search('page').each do |p|
       begin
         record["date_received"] = Date.strptime(row[5].gsub("//","/").strip, "%d/%m/%Y").to_s if row[5]
       rescue
-        puts row[5]
+        $stderr.puts row[5]
       end
 
       if (ScraperWiki.select("* from data where `council_reference`='#{record['council_reference']}'").empty? rescue true)
